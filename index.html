@@ -1,1 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2026马钞靓号检测系统 v4.2</title>
+    <style>
+        :root {
+            --primary-red: #d32f2f;
+            --bg-light: #f7f8fa;
+            --tag-purity: #ffebee;
+            --tag-purity-text: #e53935;
+            --tag-inverted: #f3e5f5;
+            --tag-inverted-text: #7b1fa2;
+            --tag-round: #e8f5e9;
+            --tag-round-text: #2e7d32;
+        }
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg-light); margin: 0; display: flex; flex-direction: column; align-items: center; color: #333; padding-bottom: 50px; }
+        .header-banner { width: 100%; max-width: 500px; background: linear-gradient(135deg, #e57373, #d32f2f); color: white; padding: 35px 0; text-align: center; border-radius: 0 0 30px 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .card { width: 90%; max-width: 450px; background: white; margin-top: -25px; padding: 25px; border-radius: 18px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); box-sizing: border-box; z-index: 10; }
+        .input-label { font-size: 14px; color: #777; margin-bottom: 10px; display: block; font-weight: 500; }
+        .input-box { display: flex; align-items: center; background: #fafafa; border: 2px solid #eee; border-radius: 10px; padding: 12px 15px; margin-bottom: 20px; transition: 0.3s; }
+        .input-box:focus-within { border-color: var(--primary-red); background: #fff; }
+        .input-box span { color: var(--primary-red); font-weight: bold; font-size: 20px; margin-right: 12px; }
+        input, select { border: none; outline: none; width: 100%; font-size: 17px; background: transparent; color: #333; }
+        .error-msg { color: var(--primary-red); font-size: 12px; margin-top: -15px; margin-bottom: 15px; display: none; }
+        button { width: 100%; padding: 16px; background: var(--primary-red); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
 
+        .result-container { width: 100%; max-width: 500px; margin-top: 25px; background: white; display: none; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #fcfcfc; color: #999; font-size: 13px; font-weight: normal; padding: 15px; text-align: left; }
+        tr:nth-child(even) { background-color: #fffdf9; }
+        td { padding: 18px 15px; border-bottom: 1px solid #f5f5f5; font-size: 14px; vertical-align: middle; }
+        .sn-text { font-weight: 900; font-family: 'Courier New', monospace; font-size: 18px; color: #000; }
+        
+        .tag { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; display: inline-block; margin: 2px; border: 0.5px solid rgba(0,0,0,0.1); }
+        .tag-p { background: var(--tag-purity); color: var(--tag-purity-text); }
+        .tag-inv { background: var(--tag-inverted); color: var(--tag-inverted-text); border-color: #d1c4e9; }
+        .tag-round { background: var(--tag-round); color: var(--tag-round-text); border-color: #c8e6c9; }
+        .tag-love { background: #fce4ec; color: #d81b60; }
+        .tag-animal { background: #e3f2fd; color: #1e88e5; }
+        .tag-gold { background: #000; color: #fff; }
+
+        .footer { margin: 50px 0 30px; text-align: center; color: #bbb; font-size: 13px; line-height: 2; }
+    </style>
+</head>
+<body>
+
+<div class="header-banner">
+    <h1>🐴 2026马钞靓号检测</h1>
+    <p>专业级钱币收藏智能分析系统</p>
+</div>
+
+<div class="card">
+    <span class="input-label">首钞票号</span>
+    <div class="input-box">
+        <span>J</span>
+        <input type="text" id="snInput" placeholder="请输入正确9位马钞编号" maxlength="9" oninput="validateInput(this)">
+    </div>
+    <div id="errorMsg" class="error-msg">请输入正确9位马钞编号</div>
+
+    <span class="input-label">检测规模</span>
+    <div class="input-box">
+        <select id="mode">
+            <option value="1">单张检测</option>
+            <option value="10">十连 (标十/整推)</option>
+            <option value="20">二十连</option>
+            <option value="100">百连 (整刀)</option>
+        </select>
+    </div>
+
+    <button onclick="runDetection()">立即检测号码</button>
+</div>
+
+<div class="result-container" id="resultTable">
+    <table>
+        <thead>
+            <tr><th width="15%">序号</th><th width="42%">票号</th><th width="43%">特征标签</th></tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+    </table>
+</div>
+
+<div class="footer">
+    © 2026 马钞靓号检测系统 v4.2<br>
+    作者dy：小茗同学
+</div>
+
+<script>
+    function validateInput(obj) {
+        obj.value = obj.value.replace(/[^\d]/g,'');
+        const err = document.getElementById('errorMsg');
+        if (obj.value.length > 0 && obj.value.length !== 9) {
+            err.style.display = 'block';
+        } else {
+            err.style.display = 'none';
+        }
+    }
+
+    function analyzeNote(digits) {
+        let tags = [];
+        const dSetFull = new Set(digits.split(''));
+        const prefix8 = digits.substring(0, 8); 
+        const dSet8 = new Set(prefix8.split(''));
+        
+        // 无系列核心优先级逻辑 (排除末位)
+        const checkNone = (arr) => !arr.some(num => dSet8.has(num));
+
+        if (checkNone(['3', '4', '5', '7'])) tags.push('<span class="tag tag-p">无3457</span>');
+        else if (checkNone(['2', '3', '4', '7'])) tags.push('<span class="tag tag-p">无2347</span>');
+        else if (checkNone(['1', '3', '4', '7'])) tags.push('<span class="tag tag-p">无1347</span>');
+        else if (checkNone(['3', '4', '7'])) tags.push('<span class="tag tag-p">无347</span>');
+        else if (checkNone(['4', '7'])) tags.push('<span class="tag tag-p">无47</span>');
+        else if (checkNone(['4'])) tags.push('<span class="tag tag-p">无4</span>');
+        else tags.push('<span class="tag" style="background:#f5f5f5;color:#999;border:none">带4</span>');
+
+        // 倒置号 (01689) & 圆圆号 (0689)
+        const invSet = new Set(['0','1','6','8','9']);
+        const rndSet = new Set(['0','6','8','9']);
+        if ([...dSetFull].every(c => rndSet.has(c))) tags.push('<span class="tag tag-round">圆圆号</span>');
+        else if ([...dSetFull].every(c => invSet.has(c))) tags.push('<span class="tag tag-inv">倒置号</span>');
+
+        // 动物号 (豹子-天王)
+        let tailCount = 1;
+        for (let i = digits.length - 2; i >= 0; i--) {
+            if (digits[i] === digits[digits.length - 1]) tailCount++; else break;
+        }
+        const names = {3:"豹子号", 4:"狮子号", 5:"老虎号", 6:"大象号", 7:"恐龙号", 8:"麒麟号", 9:"天王号"};
+        if (tailCount >= 3) tags.push(`<span class="tag tag-animal">${names[tailCount]}</span>`);
+
+        // 爱情号 & 顶底号
+        if (/520|1314|521/.test(digits)) tags.push('<span class="tag tag-love">爱情号</span>');
+        if (digits === "000000001") tags.push('<span class="tag tag-gold">★开门号★</span>');
+        if (digits === "100000000") tags.push('<span class="tag tag-gold">★关门号★</span>');
+
+        return tags;
+    }
+
+    function runDetection() {
+        const input = document.getElementById('snInput').value;
+        const mode = parseInt(document.getElementById('mode').value);
+        const tbody = document.getElementById('resultBody');
+
+        if (input.length !== 9) {
+            alert("请输入正确9位马钞编号");
+            return;
+        }
+
+        let startNum = parseInt(input);
+        tbody.innerHTML = "";
+        document.getElementById('resultTable').style.display = 'block';
+
+        for (let i = 0; i < mode; i++) {
+            let currentVal = startNum + i;
+            let currentStr = currentVal.toString().padStart(9, '0');
+            if (currentVal === 100000000) currentStr = "100000000";
+            if (currentVal > 100000000) break;
+
+            let tags = analyzeNote(currentStr);
+            tbody.innerHTML += `<tr>
+                <td style="color:#bbb; font-size:12px;">${i + 1}</td>
+                <td class="sn-text">J${currentStr}</td>
+                <td>${tags.join('')}</td>
+            </tr>`;
+        }
+        window.scrollTo({ top: document.getElementById('resultTable').offsetTop - 20, behavior: 'smooth' });
+    }
+</script>
+</body>
+</html>
